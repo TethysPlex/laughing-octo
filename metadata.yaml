@@ -1,6 +1,7 @@
-name: helloworld # 插件唯一识别名，以 astrbot_plugin_ 前缀开头
-display_name: helloworld # 用于展示的名字，可以是方便人类阅读的名字（需要版本 >= v4.5.0，低版本不会报错，请放心填写）
-desc: AstrBot 插件示例。 # 插件简短描述
-version: v1.3.0 # 插件版本号。格式：v1.1.1 或者 v1.1
-author: Soulter # 作者
-repo: https://github.com/Soulter/helloworld # 插件的仓库地址
+name: astrbot_plugin_mid_trpg
+display_name: TRPG掷骰判定硬币我也不知道应该叫什么插件系列
+desc: 我不知道该怎么写就这样吧好久没手写代码了
+version: v1.0.0
+author: TethysPlex
+repo: https://github.com/TethysPlex/laughing-octo
+astrbot_version: '>=4.9.2'

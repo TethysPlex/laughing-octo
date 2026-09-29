@@ -1,24 +1,54 @@
-from astrbot.api.event import filter, AstrMessageEvent, MessageEventResult
-from astrbot.api.star import Context, Star, register
 from astrbot.api import logger
+from astrbot.api.event import AstrMessageEvent, filter
+from astrbot.api.star import Context, Star, register
 
-@register("helloworld", "YourName", "一个简单的 Hello World 插件", "1.0.0")
-class MyPlugin(Star):
+from .card_storage import CharacterStore
+from .characters import InvalidCardData
+from .parsing import COMMAND_PATTERN, CommandError, command_parts
+from .pc import split_pc
+from .pc_text import DELETE_FAILED, INVALID_DATA
+
+
+@register("astrbot_plugin_coin_st", "TethysPlex", "掷骰判定硬币我也不知道应该叫什么插件系列", "1.0.0")
+class CoinSTPlugin(Star):
     def __init__(self, context: Context):
         super().__init__(context)
+        self._cards = CharacterStore(self)
 
-    async def initialize(self):
-        """可选择实现异步的插件初始化方法，当实例化该插件类之后会自动调用该方法。"""
-
-    # 注册指令的装饰器。指令名为 helloworld。注册成功后，发送 `/helloworld` 就会触发这个指令，并回复 `你好, {user_name}!`
-    @filter.command("helloworld")
-    async def helloworld(self, event: AstrMessageEvent):
-        """这是一个 hello world 指令""" # 这是 handler 的描述，将会被解析方便用户了解插件内容。建议填写。
-        user_name = event.get_sender_name()
-        message_str = event.message_str # 用户发的纯文本消息字符串
-        message_chain = event.get_messages() # 用户所发的消息的消息链 # from astrbot.api.message_components import *
-        logger.info(message_chain)
-        yield event.plain_result(f"Hello, {user_name}, 你发了 {message_str}!") # 发送一条纯文本消息
-
-    async def terminate(self):
-        """可选择实现异步的插件销毁方法，当插件被卸载/停用时会调用。"""
+    @filter.regex(COMMAND_PATTERN)
+    async def on_command(self, event: AstrMessageEvent):
+        command, arguments = "", ""
+        try:
+            parts = command_parts(event.message_str)
+            if parts is None:
+                return
+            command, arguments = parts
+            sender = event.get_sender_id()
+            if not sender:
+                raise CommandError("无法识别发送者，未读取或修改属性。")
+            if not event.is_private_chat() and not event.get_group_id():
+                raise CommandError("无法识别群聊，未读取或修改属性。")
+            reply = await self._cards.execute(
+                command, arguments,
+                platform=event.get_platform_id(),
+                sender=sender,
+                group=event.get_group_id(),
+                private=event.is_private_chat(),
+                sender_name=event.get_sender_name() or sender,
+            )
+        except InvalidCardData:
+            reply = INVALID_DATA
+        except CommandError as exc:
+            reply = str(exc)
+        except Exception as exc:
+            logger.error(
+                "硬币属性卡处理失败（%s），请检查插件存储和运行环境。",
+                type(exc).__name__,
+            )
+            reply = "处理失败，未能确认操作完成，请稍后重试或联系管理员。"
+            if command == "pc":
+                reply = "错误: 无法读取或保存角色数据\n"
+                if split_pc(arguments)[0] in ("del", "rm"):
+                    reply = DELETE_FAILED
+        event.stop_event()
+        yield event.plain_result(reply)
